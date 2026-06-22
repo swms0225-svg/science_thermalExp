@@ -6,16 +6,18 @@
   <title>비열과 열팽창 가상실험실</title>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.23.10/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-100 antialiased">
 <div id="root"></div>
 <script type="text/babel">
+  /** @jsx React.createElement */
+  /** @jsxFrag React.Fragment */
   const { useState, useEffect, useMemo } = React;
 
   /* ── 아이콘 ─────────────────────────────────────────── */
-  const Ic = (d, extra='') => ({c}) =>
+  const Ic = (d) => ({c = ''}) =>
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
       stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
       className={c} dangerouslySetInnerHTML={{__html:d}}/>;
@@ -78,13 +80,11 @@
 
   /* ══════════════════════════════════════════════════════
      입자 운동 관찰 컴포넌트
-     ─ SVG는 160×160 채워 배치, 원형 클리핑과 정확히 일치
      ══════════════════════════════════════════════════════ */
-  const SZ = 160;          // 내부 뷰 크기(px) – border 제외 실제 표시 영역
-  const CX = 80, CY = 80;  // 원 중심
-  const PR = 70;           // 입자 배치 허용 반지름
+  const SZ = 160;          
+  const CX = 80, CY = 80;  
+  const PR = 70;           
 
-  // 원 안에 n개 점 균등 랜덤 배치 (거부 샘플링)
   const circlePoints = (n, r=PR) => {
     const pts=[]; let tries=0;
     while(pts.length<n && tries<3000){
@@ -102,7 +102,6 @@
     const spd   = Math.max(0.06, 0.55 - diff*0.004);
     const color = temperature>40 ? '#EF4444' : temperature<15 ? '#60A5FA' : '#8B5CF6';
 
-    // 기본 위치: 물질 유형 변경 시만 재계산
     const basePts = useMemo(()=>{
       if(matterType==='solid'){
         const sp=24;
@@ -113,20 +112,17 @@
       } else if(matterType==='liquid'){
         return circlePoints(16, 65);
       } else {
-        // 기체: 적은 수, 더 넓게
         return circlePoints(9, 68);
       }
     },[matterType]);
 
-    // 진동 오프셋: 온도 바뀔 때 재계산
     const vibOff = useMemo(()=>
       basePts.map(()=>({
         vx:`${(Math.random()-.5)*amp*8}px`,
         vy:`${(Math.random()-.5)*amp*8}px`,
       })),
-    [temperature, matterType]);
+    [temperature, matterType, amp]);
 
-    // 고체: 중심에서 방사형 간격 확대
     const scale = matterType==='solid' ? 1+diff*0.0045 : 1;
 
     const typeLabel  = matterType==='solid'?'규칙적 격자(고체)':matterType==='liquid'?'불규칙 배치(액체)':'넓게 퍼짐(기체)';
@@ -140,12 +136,8 @@
 
     return (
       <div className="flex flex-col items-center w-full">
-        {/* ★ 수정: 외부 div(border ring) + 내부 div(overflow:hidden, border-radius)를 분리
-            → SVG가 내부 div의 (0,0)부터 정확히 배치되므로 원형 클리핑 중심이 올바름 */}
         <div className="relative mb-4" style={{width:SZ+16+'px', height:SZ+16+'px'}}>
-          {/* border ring (시각용, 클리핑에 영향 없음) */}
           <div className="absolute inset-0 rounded-full border-8 border-gray-300 pointer-events-none" style={{zIndex:2}}/>
-          {/* 실제 클리핑 영역 – border 없음, overflow:hidden */}
           <div className="absolute rounded-full bg-white shadow-inner overflow-hidden"
             style={{inset:'8px', zIndex:1}}>
             <svg viewBox={`0 0 ${SZ} ${SZ}`} width={SZ} height={SZ}>
@@ -176,7 +168,6 @@
     );
   };
 
-  /* 입자 운동 패널 (버튼 + 뷰어, 재사용) */
   const ParticlePanel = ({temperature, matterType, accentCls, emptyIcon, show, onToggle}) => (
     <div className="flex-1 p-5 rounded-2xl shadow-sm border flex flex-col items-center justify-start"
       style={{background:'rgba(255,255,255,0.6)'}}>
@@ -206,8 +197,8 @@
     const [time,setTime]=useState(0);
     const [series,setSeries]=useState([{time:0,t1:20,t2:20}]);
     const [saved,setSaved]=useState([]);
-    const [viewSaved,setViewSaved]=useState(null); // 상세보기할 저장 결과 id
-    const HEAT=200; // J/s
+    const [viewSaved,setViewSaved]=useState(null); 
+    const HEAT=200; 
 
     const reset=()=>{setHtg(false);setTime(0);setSeries([{time:0,t1:20,t2:20}]);};
 
@@ -218,7 +209,6 @@
           const nt=t+1;
           const T1=20+(HEAT*nt)/(MATS[mat1].c*1000*(m1/1000));
           const T2=20+(HEAT*nt)/(MATS[mat2].c*1000*(m2/1000));
-          // 온도를 제한하지 않고 그대로 저장 (그래프 그릴 때 90도에서 멈추도록 처리)
           setSeries(p=>[...p,{time:nt,t1:T1,t2:T2}]);
           if(T1>=90&&T2>=90) setHtg(false);
           return nt;
@@ -230,10 +220,8 @@
     const last=series[series.length-1];
     const t1=last.t1, t2=last.t2;
     const maxT=Math.max(300,time+20);
-    // UI의 온도계는 20도에서 90도 범위를 0%~100%로 매핑
     const pct=v=>Math.max(0,Math.min(100,((v-20)/70)*100));
     
-    // 계산 표시 및 온도계용 값 (90도 이상 오르지 않도록 고정)
     const dispT1 = Math.min(t1, 90);
     const dispT2 = Math.min(t2, 90);
     const dT1=(dispT1-20).toFixed(1), dT2=(dispT2-20).toFixed(1);
@@ -252,7 +240,6 @@
       }]);
     };
 
-    // 그래프 그리기 도우미 함수: 90도까지만 그리고 멈춤 (수평선 방지)
     const getPoints = (data, key) => {
       const pts = [];
       let prev = null;
@@ -261,12 +248,11 @@
         if (yVal >= 90) {
           let exactTime = d.time;
           if (prev && prev[key] < 90) {
-            // 90도에 정확히 도달하는 시간을 비례식을 통해 계산
             const slope = (yVal - prev[key]) / (d.time - prev.time);
             exactTime = prev.time + (90 - prev[key]) / slope;
           }
           pts.push(`${exactTime},${80-((90-20)/70)*78}`);
-          break; // 90도에 도달하면 더 이상 선을 그리지 않음
+          break; 
         }
         pts.push(`${d.time},${80-((yVal-20)/70)*78}`);
         prev = d;
@@ -281,7 +267,7 @@
         </div>}
 
         <div className="flex flex-col md:flex-row gap-3">
-          {/* ── 가열 장치 ── */}
+          {/* 가열 장치 */}
           <div className="flex-1 bg-white p-3 md:p-4 rounded-2xl shadow-sm border border-blue-100 flex flex-col items-center">
             <h3 className="text-sm font-bold text-gray-700 mb-2 flex items-center">
               <IconFlame c="text-orange-500 mr-2 w-4 h-4"/> 가열 장치
@@ -361,15 +347,13 @@
             </div>}
           </div>
 
-          {/* ── 그래프 ── */}
+          {/* 그래프 영역 */}
           <div className="flex-1 bg-white p-3 md:p-4 rounded-2xl shadow-sm border border-blue-100 flex flex-col">
 
-            {/* 저장 결과 상세보기 모달 */}
             {viewSaved&&(()=>{
               const s=saved.find(x=>x.id===viewSaved);
               if(!s) return null;
               const sMaxT=Math.max(300, s.data[s.data.length-1].time+20);
-              // 저장 결과에서 레이블 파싱 (예: "물(100g) vs 모래(100g)")
               return (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
                   <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-5 flex flex-col gap-3">
@@ -385,7 +369,6 @@
                       {s.label}
                     </div>
 
-                    {/* 상세 그래프 */}
                     <div className="flex min-h-[200px] gap-0">
                       <div className="flex flex-col justify-between text-right pr-1.5 py-0.5 shrink-0" style={{width:'32px'}}>
                         <span className="text-xs text-gray-500 font-semibold">90°C</span>
@@ -409,7 +392,6 @@
                     </div>
                     <div className="text-right text-xs text-gray-400 -mt-1 pr-1">→ 시간</div>
 
-                    {/* 범례 */}
                     <div className="flex flex-wrap gap-2 justify-center">
                       {[{c:s.c1,lbl:'물질 A',dash:false},{c:s.c2,lbl:'물질 B',dash:true}].map(({c,lbl,dash})=>(
                         <div key={lbl} className="flex items-center bg-gray-50 px-2.5 py-1 rounded-md border border-gray-100">
@@ -422,7 +404,6 @@
                       ))}
                     </div>
 
-                    {/* 최종 온도 요약 */}
                     <div className="grid grid-cols-2 gap-2">
                       {[{key:'t1',c:s.c1,lbl:'물질 A'},{key:'t2',c:s.c2,lbl:'물질 B'}].map(({key,c,lbl})=>{
                         const finalT=Math.min(s.data[s.data.length-1][key],90);
@@ -561,7 +542,6 @@
     };
     return (
       <div className="flex flex-col md:flex-row gap-4 fade-in">
-        {/* 왼쪽: 바이메탈 실험 */}
         <div className="flex-1 bg-white p-4 rounded-2xl shadow-sm border border-emerald-100 flex flex-col items-center">
           <h3 className="text-base font-bold text-gray-700 mb-3 flex items-center">
             <IconLayers c="text-emerald-500 mr-2 w-5 h-5"/> 바이메탈 실험 (고체)
@@ -604,7 +584,6 @@
             </button>
           </div>
         </div>
-        {/* 오른쪽: 입자 운동 + 탐구 질문 */}
         <div className="flex-1 flex flex-col gap-3">
           <ParticlePanel temperature={temp} matterType="solid"
             accentCls="bg-emerald-500 hover:bg-emerald-600 text-white"
@@ -632,7 +611,6 @@
     const liqC=temp>50?'#EF4444':temp<10?'#93C5FD':'#3B82F6';
     return (
       <div className="flex flex-col md:flex-row gap-4 fade-in">
-        {/* 왼쪽: 플라스크 실험 */}
         <div className="flex-1 bg-white p-4 rounded-2xl shadow-sm border border-cyan-100 flex flex-col items-center">
           <h3 className="text-base font-bold text-gray-700 mb-3 flex items-center">
             <IconDrop c="text-cyan-500 mr-2 w-5 h-5"/> 플라스크 실험 (액체)
@@ -667,7 +645,6 @@
             </button>
           </div>
         </div>
-        {/* 오른쪽: 입자 운동 + 탐구 질문 */}
         <div className="flex-1 flex flex-col gap-3">
           <ParticlePanel temperature={temp} matterType="liquid"
             accentCls="bg-cyan-500 hover:bg-cyan-600 text-white"
@@ -695,7 +672,6 @@
     const gColor=temp>60?'#FCA5A5':temp<10?'#BAE6FD':'#FDE68A';
     return (
       <div className="flex flex-col md:flex-row gap-4 fade-in">
-        {/* 왼쪽: 실험 그림 + 슬라이더 + 설명 */}
         <div className="flex-1 bg-white p-4 rounded-2xl shadow-sm border border-orange-100 flex flex-col items-center">
           <h3 className="text-base font-bold text-gray-700 mb-3 flex items-center">
             <IconWind c="text-orange-500 mr-2 w-5 h-5"/> 기체 열팽창
@@ -733,7 +709,6 @@
             </div>
           </div>
 
-          {/* 슬라이더 */}
           <div className="w-full bg-gray-50 p-3 rounded-xl border flex flex-col items-center mb-3">
             <label className="text-gray-700 font-bold mb-1.5 text-sm">
               온도: <span className={temp>20?'text-red-500':temp<20?'text-blue-500':'text-gray-600'}>{temp}°C</span>
@@ -747,7 +722,6 @@
             </button>
           </div>
 
-          {/* 설명 */}
           <div className="w-full bg-orange-50 rounded-xl p-3 border border-orange-100 text-xs">
             <p className="text-orange-700 font-bold mb-1">🔥 기체는 왜 부피가 변할까요?</p>
             <p className="text-orange-600 leading-relaxed mb-1">
@@ -763,7 +737,6 @@
           </div>
         </div>
 
-        {/* 오른쪽: 입자 운동 + 탐구 질문 + 크기 비교 */}
         <div className="flex-1 flex flex-col gap-3">
           <ParticlePanel temperature={temp} matterType="gas"
             accentCls="bg-orange-500 hover:bg-orange-600 text-white"
@@ -878,7 +851,6 @@
           </div>
         </div>
 
-        {/* 진행 바 */}
         <div className="w-full h-2 bg-gray-100 rounded-full mb-5 overflow-hidden">
           <div className="h-full rounded-full transition-all duration-300"
             style={{width:`${(answered/total)*100}%`,
